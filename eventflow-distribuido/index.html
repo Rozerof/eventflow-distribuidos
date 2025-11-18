@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EventFlow Login</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; }
+        .container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 300px; }
+        h2 { text-align: center; color: #333; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; }
+        input { width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 0.7rem; border: none; border-radius: 4px; background-color: #007bff; color: white; font-size: 1rem; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        #message { margin-top: 1rem; text-align: center; color: red; font-size: 0.9rem; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Formulario de Login -->
+        <div id="login-form">
+            <h2>Iniciar Sesión</h2>
+            <div class="form-group">
+                <label for="login-username">Usuario</label>
+                <input type="text" id="login-username" required>
+            </div>
+            <div class="form-group">
+                <label for="login-password">Contraseña</label>
+                <input type="password" id="login-password" required>
+            </div>
+            <button onclick="login()">Login</button>
+        </div>
+
+        <!-- Formulario de Registro (Signup) -->
+        <div id="signup-form" style="display:none;">
+            <h2>Registrarse</h2>
+            <div class="form-group">
+                <label for="signup-username">Usuario</label>
+                <input type="text" id="signup-username" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-email">Email</label>
+                <input type="email" id="signup-email" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-password">Contraseña</label>
+                <input type="password" id="signup-password" required>
+            </div>
+            <button onclick="signup()">Registrarse</button>
+        </div>
+        <p id="message"></p>
+        <p style="text-align: center; margin-top: 1rem; cursor: pointer; color: #007bff;" onclick="toggleForms()">¿No tienes cuenta? Regístrate</p>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

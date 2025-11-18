@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EventFlow - Venta de Boletos Distribuida</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        body {
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 20px;
+            background-color: var(--light-color);
+            color: var(--dark-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+        h1 { font-size: 2.5rem; font-weight: 700; color: #3b82f6; }
+        h2 {
+            color: var(--dark-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+            margin-top: 0;
+            font-size: 1.5rem;
+        }
+        #events-list .event-item {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        #events-list .event-item:hover {
+            background-color: #e9ecef;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        #seat-map-container {
+            margin-top: 30px;
+        }
+        .seat-map {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 8px;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f1f3f5;
+            border-radius: 8px;
+        }
+        .seat {
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #fff;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s, opacity 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .seat.available { background-color: var(--primary-color); }
+        .seat.available:hover { transform: scale(1.05); }
+        .seat.selected { background-color: var(--success-color); transform: scale(1.1); box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4); }
+        .seat.locked { background-color: var(--warning-color); cursor: not-allowed; color: var(--dark-color); opacity: 0.7; }
+        .seat.taken { background-color: var(--secondary-color); cursor: not-allowed; opacity: 0.5; }
+        
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .legend-item { display: flex; align-items: center; gap: 8px; }
+        .legend-color { width: 20px; height: 20px; border-radius: 4px; }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s, box-shadow 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0,0,0,0.15); }
+        .btn-primary { background-color: var(--primary-color); color: #fff; }
+        .btn-success { background-color: var(--success-color); color: #fff; }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; opacity: 0.6; }
+
+        #status-message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+        .status-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status-info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+
+        /* Estilos para la modal */
+        .modal-overlay { background-color: rgba(0,0,0,0.6); }
+        .hidden { display: none !important; }
+        .flex { display: flex !important; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header class="flex justify-between items-center mb-6 pb-2 border-b border-gray-200">
+            <h1>EventFlow</h1>
+            <div id="auth-section">
+                <button onclick="showLoginModal()" class="btn btn-primary">
+                    Iniciar Sesión / Registrarse
+                </button>
+            </div>
+        </header>
+
+        <div id="events-container">
+            <h2>Eventos Disponibles</h2>
+            <div id="events-list">
+                <p class="text-gray-500 italic">Cargando eventos...</p>
+            </div>
+        </div>
+
+        <div id="seat-map-container" class="hidden">
+            <h2 id="event-title"></h2>
+            <p class="text-gray-600 mt-2">Selecciona los asientos que deseas reservar.</p>
+            
+            <div class="seat-map" id="seat-map"></div>
+            
+            <div class="legend mt-5">
+                <div class="legend-item"><div class="legend-color" style="background: var(--primary-color);"></div><span>Disponible</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--success-color);"></div><span>Seleccionado</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--warning-color);"></div><span>Reservado</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--secondary-color);"></div><span>Ocupado</span></div>
+            </div>
+        </div>
+
+        <div id="actions-container" class="text-center mt-6"></div>
+
+        <div id="status-message"></div>
+    </div>
+
+    <div id="login-modal" class="fixed inset-0 z-50 items-center justify-center hidden p-4 modal-overlay">
+        <div id="login-modal-content" class="bg-white rounded-lg shadow-2xl w-full max-w-md mx-auto">
+            
+            <div id="login-view">
+                <form onsubmit="handleLogin(event)" class="p-8 space-y-4">
+                    <h2 class="text-2xl font-bold text-gray-800 border-none pb-0">Iniciar Sesión</h2>
+                    <input type="text" id="login-username" placeholder="Nombre de usuario" required class="w-full p-3 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <input type="password" id="login-password" placeholder="Contraseña" required class="w-full p-3 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150">
+                        Entrar
+                    </button>
+                    <p class="text-center text-sm text-gray-600">
+                        ¿No tienes cuenta? <a href="#" onclick="toggleAuthView(event)" class="font-medium text-indigo-600 hover:underline">Crea una aquí</a>
+                    </p>
+                </form>
+            </div>
+            
+            <div id="signup-view" class="hidden">
+                <form onsubmit="handleSignup(event)" class="p-8 space-y-4">
+                    <h2 class="text-2xl font-bold text-gray-800 border-none pb-0">Crear Cuenta</h2>
+                    <input type="text" id="signup-username" placeholder="Nombre de usuario" required class="w-full p-3 border rounded-md focus:ring-green-500 focus:border-green-500">
+                    <input type="email" id="signup-email" placeholder="Correo electrónico" required class="w-full p-3 border rounded-md focus:ring-green-500 focus:border-green-500">
+                    <input type="password" id="signup-password" placeholder="Contraseña" required class="w-full p-3 border rounded-md focus:ring-green-500 focus:border-green-500">
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150">
+                        Registrarse
+                    </button>
+                    <p class="text-center text-sm text-gray-600">
+                        ¿Ya tienes cuenta? <a href="#" onclick="toggleAuthView(event)" class="font-medium text-indigo-600 hover:underline">Inicia sesión</a>
+                    </p>
+                </form>
+            </div>
+
+            <div id="checkout-view" class="hidden">
+                <div class="p-8 space-y-6">
+                    <h2 class="text-2xl font-bold text-gray-800 border-none pb-0">Portal de Pago</h2>
+                    <p class="text-lg text-gray-600">Total a Pagar: <span id="checkout-total" class="font-bold text-success-color">$0.00</span></p>
+
+                    <input type="text" placeholder="Número de Tarjeta (Simulado)" required class="w-full p-3 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    <div class="flex gap-4">
+                        <input type="text" placeholder="MM/YY" required class="w-1/2 p-3 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                        <input type="text" placeholder="CVC" required class="w-1/2 p-3 border rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    
+                    <button onclick="confirmPurchase()" id="btn-final-pay" class="w-full bg-success-color hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150">
+                        Pagar y Finalizar
+                    </button>
+                    <button onclick="hideLoginModal()" class="w-full text-gray-600 mt-2">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // La URL base apunta al balanceador NGINX, que redirige las API
+        const API_BASE_URL = window.location.origin; 
+        const AUTH_API_BASE = `${API_BASE_URL}/auth-api`; 
+        const SEATS_API_BASE = `${API_BASE_URL}/api`; 
+
+        // Elementos del DOM
+        const eventsListEl = document.getElementById('events-list');
+        const seatMapContainerEl = document.getElementById('seat-map-container');
+        const seatMapEl = document.getElementById('seat-map');
+        const eventTitleEl = document.getElementById('event-title');
+        const actionsContainerEl = document.getElementById('actions-container');
+        const statusMessageEl = document.getElementById('status-message');
+        const authSection = document.getElementById('auth-section');
+
+        // Elementos de la Modal
+        const loginModal = document.getElementById('login-modal');
+        const loginView = document.getElementById('login-view');
+        const signupView = document.getElementById('signup-view');
+        const checkoutView = document.getElementById('checkout-view'); 
+        const checkoutTotalEl = document.getElementById('checkout-total'); 
+
+        // Estado de la aplicación
+        let currentUser = null; 
+        let selectedEvent = null;
+        let selectedSeats = new Set();
+        let currentLock = null; 
+        let countdownInterval = null;
+
+        // --- UTILS ---
+        
+        function getAuthHeader() {
+            const token = localStorage.getItem('authToken');
+            return token ? { 'Authorization': `Bearer ${token}` } : {};
+        }
+
+        // --- AUTH/LOGIN LOGIC ---
+        
+        function showLoginModal() {
+            loginModal.classList.remove('hidden');
+            loginModal.classList.add('flex');
+            loginView.classList.remove('hidden');
+            signupView.classList.add('hidden');
+            checkoutView.classList.add('hidden'); 
+        }
+
+        function hideLoginModal() {
+            loginModal.classList.add('hidden');
+            loginModal.classList.remove('flex');
+        }
+
+        function toggleAuthView(event) {
+            event.preventDefault();
+            loginView.classList.toggle('hidden');
+            signupView.classList.toggle('hidden');
+        }
+
+        loginModal.addEventListener('click', (event) => {
+            const modalContent = document.getElementById('login-modal-content');
+            if (event.target === loginModal) {
+                 hideLoginModal();
+            }
+        });
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            
+            try {
+                const response = await fetch(`${AUTH_API_BASE}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Error al iniciar sesión.');
+                
+                localStorage.setItem('authToken', data.access_token);
+                localStorage.setItem('user', JSON.stringify({ id: data.user_id, username: data.username }));
+                
+                checkSession();
+                hideLoginModal();
+                showStatus(`Bienvenido, ${data.username}.`, 'success');
+
+                if (selectedEvent) loadSeatMap(selectedEvent);
+
+            } catch (error) {
+                const errorMessage = error.message.includes('Incorrect') ? 'Usuario o contraseña incorrectos.' : error.message;
+                showStatus(`Error: ${errorMessage}`, 'error');
+            }
+        }
+
+        async function handleSignup(event) {
+            event.preventDefault();
+            const username = document.getElementById('signup-username').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            
+            try {
+                const response = await fetch(`${AUTH_API_BASE}/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+                const data = await response.json();
+                
+                if (!response.ok) throw new Error(data.detail || 'Error al registrarse.');
+                
+                localStorage.setItem('authToken', data.access_token);
+                localStorage.setItem('user', JSON.stringify({ id: data.user_id, username: data.username }));
+                
+                checkSession();
+                hideLoginModal();
+                showStatus(`¡Cuenta creada y sesión iniciada! Bienvenido, ${data.username}.`, 'success');
+
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function handleLogout() {
+            if (currentLock) {
+                await unlockSeats(currentLock.lock_id, false);
+            }
+            
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+            updateAuthUI();
+            
+            currentLock = null;
+            clearInterval(countdownInterval);
+            renderActions();
+
+            if (selectedEvent) loadSeatMap(selectedEvent);
+            
+            showStatus('Sesión cerrada.', 'info');
+        }
+
+        function checkSession() {
+            const user = localStorage.getItem('user');
+            if (user) {
+                try {
+                    currentUser = JSON.parse(user);
+                } catch (e) {
+                    localStorage.removeItem('user');
+                    currentUser = null;
+                }
+            } else {
+                currentUser = null;
+            }
+            updateAuthUI();
+        }
+
+        function updateAuthUI() {
+            if (currentUser) {
+                authSection.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <span class="font-medium text-gray-700">Hola, ${currentUser.username}</span>
+                        <button onclick="handleLogout()" class="btn" style="background-color: var(--danger-color); color: white;">
+                            Cerrar Sesión
+                        </button>
+                    </div>`;
+            } else {
+                authSection.innerHTML = `<button onclick="showLoginModal()" class="btn btn-primary">Iniciar Sesión / Registrarse</button>`;
+            }
+        }
+
+        // --- STATUS MESSAGE ---
+
+        function showStatus(message, type = 'info') {
+            statusMessageEl.textContent = message;
+            statusMessageEl.className = `status-${type}`;
+            statusMessageEl.classList.remove('hidden');
+            statusMessageEl.style.display = 'block';
+
+            setTimeout(() => {
+                statusMessageEl.style.display = 'none';
+            }, 5000);
+        }
+
+        // --- EVENT & SEAT MAP LOGIC ---
+        
+        async function unlockSeats(lockId, displayStatus = true) {
+            try {
+                const response = await fetch(`${SEATS_API_BASE}/seats/unlock/${lockId}`, {
+                    method: 'POST',
+                    headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: currentUser.id })
+                });
+                
+                if (response.ok || response.status === 404) {
+                    clearInterval(countdownInterval);
+                    currentLock = null;
+                    selectedSeats.clear();
+                    renderActions();
+                    if (displayStatus) showStatus('Reserva cancelada con éxito.', 'info');
+                    return true;
+                }
+                const errorData = await response.json();
+                if (displayStatus) showStatus(errorData.detail || 'Error al intentar cancelar la reserva.', 'error');
+                return false;
+            } catch (error) {
+                if (displayStatus) showStatus(`Error de red al intentar cancelar la reserva: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+
+        async function loadEvents() {
+            try {
+                eventsListEl.innerHTML = '<p class="text-gray-500 italic">Cargando eventos...</p>';
+                const response = await fetch(`${SEATS_API_BASE}/events`);
+                
+                if (!response.ok) {
+                    const errorText = response.status === 503 ? "Servicio de backend no disponible. DB/Redis caído." : `Error ${response.status} al cargar eventos.`;
+                    throw new Error(errorText);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.events || data.events.length === 0) {
+                     eventsListEl.innerHTML = '<p class="text-red-500 font-bold">¡ADVERTENCIA! No hay eventos disponibles.</p>';
+                     return;
+                }
+
+                eventsListEl.innerHTML = '';
+                data.events.forEach(event => {
+                    const item = document.createElement('div');
+                    item.className = 'event-item';
+                    item.innerHTML = `
+                        <p class="text-lg font-semibold">${event.name}</p>
+                        <p class="text-sm text-gray-500">${new Date(event.date).toLocaleDateString()} | ${event.description}</p>
+                    `;
+                    item.onclick = () => loadSeatMap(event);
+                    eventsListEl.appendChild(item);
+                });
+            } catch (error) {
+                showStatus(error.message, 'error');
+                eventsListEl.innerHTML = `<p class="text-red-500 font-bold">Error al conectar con el backend: ${error.message}.</p>`;
+            }
+        }
+
+        async function loadSeatMap(event) {
+            if (currentLock && currentLock.event_id !== event.id) {
+                await unlockSeats(currentLock.lock_id);
+            }
+            
+            selectedEvent = event;
+            selectedSeats.clear();
+            currentLock = null;
+            clearInterval(countdownInterval);
+            seatMapEl.innerHTML = '<p class="text-center text-gray-500 py-10">Cargando mapa de asientos...</p>';
+
+            eventTitleEl.textContent = `Mapa de Asientos: ${event.name}`;
+            seatMapContainerEl.classList.remove('hidden');
+            actionsContainerEl.classList.add('hidden');
+            
+            try {
+                const response = await fetch(`${SEATS_API_BASE}/events/${event.id}/seats`, {
+                    headers: getAuthHeader()
+                });
+                
+                if (!response.ok) throw new Error('No se pudo cargar el mapa de asientos.');
+                
+                const data = await response.json();
+
+                const seatsData = data.seats || (Array.isArray(data) ? data : []); 
+                
+                if (!Array.isArray(seatsData)) {
+                     throw new Error('Respuesta del mapa de asientos inválida.');
+                }
+                
+                if (seatsData.length === 0) {
+                    seatMapEl.innerHTML = '<p class="text-center text-gray-500 py-10">No hay asientos disponibles o el mapa está vacío.</p>';
+                    return;
+                }
+
+                // Reestablecer el bloqueo si el servidor lo indica 
+                if (data.active_lock) {
+                    currentLock = data.active_lock;
+                    startCountdown(currentLock.expires_in);
+                    showStatus(`¡Bienvenido de nuevo! Tienes un bloqueo activo por ${Math.floor(currentLock.expires_in / 60)} minutos.`, 'info');
+                } else {
+                    currentLock = null;
+                }
+
+                seatMapEl.innerHTML = '';
+                
+                seatsData.forEach(seat => {
+                    const seatEl = document.createElement('div');
+                    seatEl.className = `seat ${seat.status}`;
+                    seatEl.textContent = seat.seat_id;
+                    seatEl.dataset.seatId = seat.seat_id;
+                    
+                    const isLockedByMe = currentLock && currentLock.seats.includes(seat.seat_id);
+
+                    if (seat.status === 'available' && !currentLock) {
+                        seatEl.onclick = () => toggleSeatSelection(seatEl);
+                    } else if (isLockedByMe) {
+                        seatEl.className = 'seat locked';
+                    } else if (seat.status === 'locked' && !isLockedByMe) {
+                        seatEl.className = 'seat locked';
+                        seatEl.onclick = null;
+                    }
+                    
+                    seatMapEl.appendChild(seatEl);
+                });
+                renderActions();
+
+            } catch (error) {
+                showStatus(error.message, 'error');
+                seatMapEl.innerHTML = `<p class="text-center text-red-500 py-10">Error al obtener el mapa: ${error.message}</p>`;
+            } finally {
+                actionsContainerEl.classList.remove('hidden');
+            }
+        }
+        
+        function toggleSeatSelection(seatEl) {
+            if (currentLock) {
+                showStatus("Ya tienes una reserva activa. Confirma o espera que expire.", 'info');
+                return;
+            }
+            
+            const seatId = seatEl.dataset.seatId;
+            if (selectedSeats.has(seatId)) {
+                selectedSeats.delete(seatId);
+                seatEl.classList.remove('selected');
+            } else {
+                selectedSeats.add(seatId);
+                seatEl.classList.add('selected');
+            }
+            renderActions();
+        }
+        
+        // --- NUEVA FUNCIÓN PARA ABRIR LA MODAL DE PAGO ---
+        function showCheckoutModal() {
+            loginView.classList.add('hidden');
+            signupView.classList.add('hidden');
+            
+            loginModal.classList.remove('hidden');
+            loginModal.classList.add('flex');
+            checkoutView.classList.remove('hidden');
+
+            const total = selectedSeats.size * 25.00; // Asumiendo $25 por asiento
+            checkoutTotalEl.textContent = `$${total.toFixed(2)}`;
+            
+            const finalPayBtn = document.getElementById('btn-final-pay');
+            if (finalPayBtn && currentLock) {
+                startCountdown(currentLock.expires_in);
+            }
+        }
+
+        function renderActions() {
+            actionsContainerEl.innerHTML = '';
+            
+            if (currentLock) {
+                // MODO COMPRA ACTIVA
+                const lockDurationMsg = document.createElement('p');
+                lockDurationMsg.id = 'lock-countdown';
+                lockDurationMsg.className = 'text-red-600 text-sm mb-3 font-bold';
+                actionsContainerEl.appendChild(lockDurationMsg);
+
+                // BOTÓN DE PASARELA DE PAGO
+                const payBtn = document.createElement('button');
+                payBtn.className = 'btn btn-success';
+                payBtn.textContent = `Ir a Pagar (${selectedSeats.size} Asiento(s))`;
+                payBtn.onclick = showCheckoutModal; // Llama a la nueva modal de pago
+                actionsContainerEl.appendChild(payBtn);
+                
+                // Botón para cancelar la reserva (desbloqueo manual)
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'btn btn-danger ml-4';
+                cancelBtn.textContent = 'Cancelar Reserva';
+                cancelBtn.onclick = async () => {
+                    if (await unlockSeats(currentLock.lock_id)) {
+                        loadSeatMap(selectedEvent);
+                    }
+                };
+                actionsContainerEl.appendChild(cancelBtn);
+
+            } else if (selectedSeats.size > 0) {
+                // MODO RESERVA PENDIENTE
+                const lockBtn = document.createElement('button');
+                const authRequired = currentUser ? '' : 'disabled';
+                
+                lockBtn.className = `btn btn-primary ${authRequired}`;
+                lockBtn.textContent = `Reservar ${selectedSeats.size} Asiento(s)`;
+                lockBtn.onclick = lockSeats;
+                actionsContainerEl.appendChild(lockBtn);
+
+                if (!currentUser) {
+                    const loginMsg = document.createElement('p');
+                    loginMsg.className = 'text-red-500 text-sm mt-2 font-semibold';
+                    loginMsg.textContent = 'Debes iniciar sesión para reservar.';
+                    actionsContainerEl.appendChild(loginMsg);
+                }
+
+            } else {
+                // Sin asientos seleccionados
+                actionsContainerEl.innerHTML = '<p class="text-gray-500">Selecciona uno o más asientos para continuar.</p>';
+            }
+        }
+
+        function startCountdown(initialTime) {
+            clearInterval(countdownInterval);
+            let timeLeft = initialTime;
+
+            const countdownEl = document.getElementById('lock-countdown');
+            const finalPayBtn = document.getElementById('btn-final-pay');
+            
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (countdownEl) countdownEl.textContent = `Tiempo restante de reserva: ${timeStr}`;
+                if (finalPayBtn) finalPayBtn.textContent = `Pagar y Finalizar (${timeStr})`; // Actualizar el botón de pago final
+
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    currentLock = null;
+                    showStatus('Tu reserva ha expirado. Por favor, selecciona los asientos de nuevo.', 'error');
+                    loadSeatMap(selectedEvent);
+                }
+            }, 1000);
+        }
+
+        // --- API INTERACTION ---
+
+        async function lockSeats() {
+            if (!currentUser) return showStatus('Debes iniciar sesión para reservar asientos.', 'error');
+            if (!selectedEvent) return showStatus('Error: Evento no seleccionado.', 'error');
+            
+            try {
+                const response = await fetch(`${SEATS_API_BASE}/seats/lock`, {
+                    method: 'POST',
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({
+                        event_id: selectedEvent.id,
+                        seats: Array.from(selectedSeats),
+                        user_id: currentUser.id
+                    })
+                });
+                const data = await response.json();
+                
+                if (!response.ok) throw new Error(data.detail || 'Error al reservar los asientos.');
+
+                currentLock = data;
+                
+                showStatus(`Asientos reservados por ${Math.floor(data.expires_in / 60)} minutos. ¡Procede con la compra!`, 'success');
+                
+                selectedSeats.forEach(seatId => {
+                    const seatEl = seatMapEl.querySelector(`[data-seat-id="${seatId}"]`);
+                    if (seatEl) {
+                        seatEl.className = 'seat locked';
+                        seatEl.onclick = null;
+                    }
+                });
+
+                startCountdown(data.expires_in);
+
+                renderActions();
+            } catch (error) {
+                showStatus(error.message, 'error');
+                if (selectedEvent) loadSeatMap(selectedEvent); 
+            }
+        }
+
+        async function confirmPurchase() {
+            if (!currentUser || !currentLock) return showStatus('Reserva inválida o sesión expirada.', 'error');
+            
+            hideLoginModal();
+
+            try {
+                showStatus('Procesando pago...', 'info');
+
+                const response = await fetch(`${SEATS_API_BASE}/purchase`, {
+                    method: 'POST',
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({
+                        lock_id: currentLock.lock_id,
+                        user_id: currentUser.id,
+                        event_id: selectedEvent.id
+                    })
+                });
+                const data = await response.json();
+                
+                if (!response.ok) throw new Error(data.detail || 'Error al confirmar la compra.');
+
+                clearInterval(countdownInterval);
+                
+                showStatus(`¡Compra exitosa! Tu ID de transacción es: ${data.transaction_id}`, 'success');
+                
+                const purchasedSeats = currentLock.seats || selectedSeats;
+                purchasedSeats.forEach(seatId => {
+                    const seatEl = seatMapEl.querySelector(`[data-seat-id="${seatId}"]`);
+                    if (seatEl) seatEl.className = 'seat taken';
+                });
+
+                selectedSeats.clear();
+                currentLock = null;
+                renderActions();
+
+            } catch (error) {
+                showStatus(error.message, 'error');
+                if (selectedEvent) loadSeatMap(selectedEvent);
+            }
+        }
+
+        // --- INITIALIZATION ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkSession();
+            loadEvents();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+pydantic
+redis
+pika # Cliente de RabbitMQ
+psycopg2-binary # Cliente de PostgreSQL
