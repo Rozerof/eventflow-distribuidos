@@ -12,3 +12,5 @@ python-jose[cryptography]==3.3.0
 
 # File Upload Support (Sin pin de versión para evitar el error de distribución)
 python-multipart
+requests
+pika

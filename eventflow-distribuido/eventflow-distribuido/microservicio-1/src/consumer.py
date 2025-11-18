@@ -99,7 +99,7 @@ if __name__ == '__main__':
             # 3. Empezar a consumir
             channel.start_consuming()
 
-        except pika.exceptions.AMQPConnectionError as e:
+        except pika.exceptions.AMQPConnectionError as e: # type: ignore
             print(f"CONSUMER WARNING: Conexión RabbitMQ perdida ({e}). Reintentando en 5 segundos...")
             time.sleep(5)
         except KeyboardInterrupt:

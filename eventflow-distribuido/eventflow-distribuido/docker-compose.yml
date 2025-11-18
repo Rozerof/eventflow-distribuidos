@@ -178,6 +178,7 @@ services:
     command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8001"]
     depends_on:
       db: {condition: service_healthy}
+      mail-sender: {condition: service_healthy}
     networks:
       - eventflow-net
 
@@ -211,6 +212,27 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:
       - prometheus
+    networks:
+      - eventflow-net
+
+  mail-sender:
+    build: ./mailsender
+    container_name: mail_sender
+    environment:
+      RABBITMQ_HOST: queue
+      MAIL_USER: lauris142003@gmail.com
+      MAIL_PASS: kxuu uzly fwzy dmwr
+      MAIL_SMTP: smtp.gmail.com
+      MAIL_PORT: 587
+    depends_on:
+      queue:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "echo ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - eventflow-net
 

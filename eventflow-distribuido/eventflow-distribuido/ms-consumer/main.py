@@ -80,10 +80,43 @@ def insert_purchase_record(conn, data):
             )
             conn.commit()
         print(f"CONSUMER SUCCESS: Compra {data['transaction_id']} registrada en BD.")
-        return True
+        insert_ok = True
     except Exception as e:
         print(f"CONSUMER CRITICAL ERROR: Falló la inserción en BD: {e}")
         return False
+    
+    # --- Enviar correo ---
+    try:
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=RABBITMQ_HOST)
+        )
+        channel = connection.channel()
+        channel.queue_declare(queue="mail_queue", durable=True)
+
+        email_payload = {
+            "email": data["user_email"],
+            "subject": "✔ Compra Confirmada",
+            "message": (
+                f"<h1>Compra Confirmada</h1>"
+                f"<p>Evento: {data['event_id']}<br>"
+                f"Asientos: {data['seats']}</p>"
+            )
+        }
+
+        channel.basic_publish(
+            exchange="",
+            routing_key="mail_queue",
+            body=json.dumps(email_payload),
+            properties=pika.BasicProperties(delivery_mode=2)
+        )
+        connection.close()
+        print("[CONSUMER] Correo encolado correctamente.")
+
+    except Exception as e:
+        print(f"[CONSUMER] ERROR enviando correo al mail-sender: {e}")
+        return False   # <--- ESTE CAMBIO ES CRÍTICO
+
+    return insert_ok
 
 # --- Callback del Consumidor ---
 def process_message(ch, method, properties, body):
@@ -124,7 +157,7 @@ def start_consuming():
         try:
             connection = get_rabbitmq_connection()
             if connection is None:
-                raise pika.exceptions.AMQPConnectionError("No se pudo conectar a RabbitMQ.")
+                raise pika.exceptions.AMQPConnectionError("No se pudo conectar a RabbitMQ.") # type: ignore
             
             channel = connection.channel()
             channel.queue_declare(queue='transaction_queue', durable=True)
@@ -139,7 +172,7 @@ def start_consuming():
             print('CONSUMER INFO: Esperando mensajes en transaction_queue...')
             channel.start_consuming()
 
-        except pika.exceptions.AMQPConnectionError as e:
+        except pika.exceptions.AMQPConnectionError as e: # type: ignore
             print(f"CONSUMER WARNING: Conexión RabbitMQ perdida o fallida: {e}. Reintentando en 5s...")
             time.sleep(5)
         except Exception as e:

@@ -11,6 +11,9 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import sys
 import time
+import requests
+import pika
+import json
 
 # --- Configuration ---
 DB_USER = os.getenv("DB_USER", "user")
@@ -180,6 +183,40 @@ def signup(user: UserCreate, conn: any = Depends(get_db_connection)):
         raise HTTPException(status_code=400, detail="Username or email already registered")
     except psycopg2.Error as e:
         raise HTTPException(status_code=500, detail=f"Database error during signup: {e}")
+    
+    try:
+        rmq_host = os.getenv("RABBITMQ_HOST", "queue")
+
+        rmq_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=rmq_host)
+        )
+        channel = rmq_connection.channel()
+        channel.queue_declare(queue="mail_queue", durable=True)
+
+        email_payload = {
+            "email": user.email,
+            "subject": "🎉 Bienvenido a EventFlow",
+            "message": (
+                f"<h1>Hola {user.username},</h1>"
+                "<p>Tu cuenta ha sido creada exitosamente.</p>"
+            )
+        }
+
+        channel.basic_publish(
+            exchange="",
+            routing_key="mail_queue",
+            body=json.dumps(email_payload),
+            properties=pika.BasicProperties(
+                delivery_mode=2  # Persistente
+            ),
+        )
+
+        rmq_connection.close()
+
+        print("[AUTH] Correo de bienvenida enviado a mail-sender.")
+
+    except Exception as e:
+        print(f"[AUTH] ERROR enviando correo al mail-sender: {e}")
 
     user_id, username = new_user
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -209,3 +246,21 @@ def login(user_login: UserLogin, conn: any = Depends(get_db_connection)):
     )
     
     return {"access_token": access_token, "token_type": "bearer", "user_id": user["id"], "username": user["username"]}
+
+# --- Email Notification Function ---
+MAIL_SENDER_URL = os.getenv("MAIL_SENDER_URL", "http://mail-sender:8000/send-email")
+
+def send_welcome_email(email: str, username: str):
+    """
+    Envía una solicitud al microservicio mail-sender para enviar un correo de bienvenida.
+    """
+    data = {
+        "to_email": email,
+        "subject": "Bienvenido a EventFlow",
+        "message": f"Hola {username}, ¡tu cuenta ha sido creada exitosamente!"
+    }
+
+    try:
+        requests.post(MAIL_SENDER_URL, json=data, timeout=5)
+    except Exception as e:
+        print(f"WARNING: No se pudo enviar correo de bienvenida: {e}")
