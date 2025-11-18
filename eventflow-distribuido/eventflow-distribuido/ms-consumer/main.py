@@ -59,8 +59,20 @@ def get_rabbitmq_connection():
         return None
 
 # --- Lógica de Procesamiento de Negocio ---
-def insert_purchase_record(conn, data):
-    """Inserta el registro de compra en la tabla 'purchases'."""
+def insert_purchase_record(conn, channel, data):
+    """
+    Inserta el registro de compra y encola un correo de confirmación.
+    
+    Args:
+        conn: Conexión a la base de datos.
+        channel: Canal de RabbitMQ para encolar el correo.
+        data: Datos de la compra.
+
+    Returns:
+        bool: True si ambas operaciones (BD y encolado) son exitosas, False en caso contrario.
+    """
+    user_email = None
+
     try:
         with conn.cursor() as cursor:
             # Esta es una query de ejemplo, asume que existe la tabla 'purchases'
@@ -78,45 +90,51 @@ def insert_purchase_record(conn, data):
                     data['timestamp']
                 )
             )
+
+            # --- Obtener el email del usuario desde la BD ---
+            cursor.execute("SELECT email FROM users WHERE id = %s", (data['user_id'],))
+            result = cursor.fetchone()
+            if result:
+                user_email = result[0]
+            
             conn.commit()
         print(f"CONSUMER SUCCESS: Compra {data['transaction_id']} registrada en BD.")
-        insert_ok = True
+
     except Exception as e:
         print(f"CONSUMER CRITICAL ERROR: Falló la inserción en BD: {e}")
+        conn.rollback() # Revertir cambios si algo falla
         return False
     
+    if not user_email:
+        print(f"CONSUMER WARNING: No se encontró email para el user_id {data['user_id']}. No se enviará correo.")
+        # Decidimos que es un éxito parcial, ya que la compra se guardó.
+        # Si el correo fuera crítico, aquí deberíamos retornar False.
+        return True
+
     # --- Enviar correo ---
     try:
-        connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=RABBITMQ_HOST)
-        )
-        channel = connection.channel()
         channel.queue_declare(queue="mail_queue", durable=True)
 
         email_payload = {
-            "email": data["user_email"],
+            "email": user_email,
             "subject": "✔ Compra Confirmada",
             "message": (
-                f"<h1>Compra Confirmada</h1>"
+                f"<h1>¡Gracias por tu compra!</h1>"
                 f"<p>Evento: {data['event_id']}<br>"
                 f"Asientos: {data['seats']}</p>"
             )
         }
 
-        channel.basic_publish(
-            exchange="",
-            routing_key="mail_queue",
-            body=json.dumps(email_payload),
-            properties=pika.BasicProperties(delivery_mode=2)
-        )
-        connection.close()
+        channel.basic_publish(exchange="",
+                              routing_key="mail_queue",
+                              body=json.dumps(email_payload),
+                              properties=pika.BasicProperties(delivery_mode=2))
         print("[CONSUMER] Correo encolado correctamente.")
+        return True
 
     except Exception as e:
-        print(f"[CONSUMER] ERROR enviando correo al mail-sender: {e}")
+        print(f"[CONSUMER] ERROR encolando correo al mail-sender: {e}")
         return False   # <--- ESTE CAMBIO ES CRÍTICO
-
-    return insert_ok
 
 # --- Callback del Consumidor ---
 def process_message(ch, method, properties, body):
@@ -133,7 +151,7 @@ def process_message(ch, method, properties, body):
             return
 
         # Intentar insertar el registro de compra
-        if insert_purchase_record(conn, message_data):
+        if insert_purchase_record(conn, ch, message_data):
             ch.basic_ack(delivery_tag=method.delivery_tag) # ACK si la inserción fue exitosa
         else:
             # Si falla la inserción por error de query, podría ser irreparable.
