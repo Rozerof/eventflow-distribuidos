@@ -14,6 +14,7 @@ import time
 import requests
 import pika
 import json
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # --- Configuration ---
 DB_USER = os.getenv("DB_USER", "user")
@@ -109,6 +110,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 # --- Database Dependency Injection ---
 def get_db_connection():

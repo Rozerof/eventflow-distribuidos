@@ -1,32 +1,27 @@
 global:
-  scrape_interval: 15s # Monitorea cada 15 segundos
+  scrape_interval: 5s
 
 scrape_configs:
-  # 1. Monitoreo del propio Prometheus
-  - job_name: 'prometheus'
+  - job_name: "auth_service"
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ["ms-auth:8001"]
 
-  # 3. Monitoreo de los 3 Nodos de la Aplicación (FastAPI)
-  - job_name: 'app_nodes'
-    metrics_path: /metrics
+  - job_name: "analisis_service"
     static_configs:
-      - targets: ['app-node-1:8000', 'app-node-2:8000', 'app-node-3:8000']
-    
-  # 4. Monitoreo del Consumidor de Compras
-  - job_name: 'purchase_consumer'
-    metrics_path: /metrics
-    static_configs:
-      - targets: ['ms-consumer:8001']
+      - targets: ["ms-analisis:8082"]
 
-  # 4. Monitoreo de RabbitMQ (Cola)
-  - job_name: 'rabbitmq'
+  - job_name: "consumer_service"
     static_configs:
-      # Scrape from the rabbitmq_prometheus plugin's dedicated port
-      - targets: ['queue:15692']
+      - targets: ["ms-consumer:8005"]
 
-  # 5. Monitoreo de Redis (Caché)
-  # Para métricas detalladas se requiere un exporter (redis_exporter)
-  # - job_name: 'redis'
-  #   static_configs:
-  #     - targets: ['cache:6379']
+  - job_name: "node_1"
+    static_configs:
+      - targets: ["app-node-1:8000"]
+
+  - job_name: "node_2"
+    static_configs:
+      - targets: ["app-node-2:8000"]
+
+  - job_name: "node_3"
+    static_configs:
+      - targets: ["app-node-3:8000"]

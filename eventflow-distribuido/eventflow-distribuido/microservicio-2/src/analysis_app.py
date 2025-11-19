@@ -3,6 +3,7 @@ import psycopg2
 from fastapi import FastAPI, HTTPException
 import uvicorn
 import time
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # --- Configuración del Entorno ---
 DB_HOST = os.environ.get("DB_HOST", "db")
@@ -17,6 +18,8 @@ app = FastAPI(
     description="Proporciona métricas y consultas pesadas leyendo de PostgreSQL.",
     version="1.0.0"
 )
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 # Función para obtener la conexión a PostgreSQL
 def get_db_connection():

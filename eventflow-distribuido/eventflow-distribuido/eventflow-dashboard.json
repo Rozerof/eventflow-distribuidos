@@ -1,1 +1,75 @@
-{"__inputs":[{"name":"DS_PROMETHEUS","label":"Prometheus","description":"","type":"datasource","pluginId":"prometheus","pluginName":"Prometheus"}],"__requires":[{"type":"grafana","id":"grafana","name":"Grafana","version":"9.3.2"},{"type":"datasource","id":"prometheus","name":"Prometheus","version":"1.0.0"},{"type":"panel","id":"timeseries","name":"Time series","version":""},{"type":"panel","id":"stat","name":"Stat","version":""}],"annotations":{"list":[]},"editable":true,"gnetId":null,"graphTooltip":0,"id":1,"links":[],"panels":[{"gridPos":{"h":8,"w":12,"x":0,"y":0},"id":2,"options":{"legend":{"calcs":[],"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sum(rate(http_requests_total{job=\"app_nodes\"}[5m])) by (instance)","legendFormat":"{{instance}}","refId":"A"}],"title":"RPS por Nodo de Aplicación","type":"timeseries"},{"gridPos":{"h":8,"w":12,"x":12,"y":0},"id":4,"options":{"legend":{"calcs":[],"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETheus}"},"expr":"sum(rate(consumer_messages_processed_total[5m]))","legendFormat":"Mensajes Procesados","refId":"A"}],"title":"Throughput del Consumidor (mensajes/seg)","type":"timeseries"},{"gridPos":{"h":4,"w":6,"x":0,"y":8},"id":6,"options":{"colorMode":"value","graphMode":"area","justifyMode":"auto","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"auto"},"pluginVersion":"9.3.2","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sum(up{job=\"app_nodes\"})","refId":"A"}],"title":"Nodos de Aplicación Activos","type":"stat"},{"gridPos":{"h":4,"w":6,"x":6,"y":8},"id":7,"options":{"colorMode":"value","graphMode":"area","justifyMode":"auto","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"auto"},"pluginVersion":"9.3.2","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sum(up{job=\"purchase_consumer\"})","refId":"A"}],"title":"Consumidores Activos","type":"stat"},{"gridPos":{"h":4,"w":6,"x":12,"y":8},"id":8,"options":{"colorMode":"value","graphMode":"area","justifyMode":"auto","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"auto"},"pluginVersion":"9.3.2","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"consumer_db_connection_status","refId":"A"}],"title":"Estado Conexión BD (Consumidor)","type":"stat"},{"gridPos":{"h":4,"w":6,"x":18,"y":8},"id":9,"options":{"colorMode":"value","graphMode":"area","justifyMode":"auto","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"auto"},"pluginVersion":"9.3.2","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sum(consumer_processing_errors_total)","refId":"A"}],"title":"Errores de Procesamiento","type":"stat"}],"refresh":"10s","schemaVersion":37,"style":"dark","tags":[],"templating":{"list":[]},"time":{"from":"now-15m","to":"now"},"timepicker":{},"timezone":"","title":"EventFlow - Dashboard de Monitoreo","version":1}
+{
+  "id": null,
+  "title": "EventFlow - Monitoreo General",
+  "tags": ["eventflow", "microservices", "python"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "CPU - ms-auth",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "process_cpu_seconds_total{job=\"auth_service\"}"
+        }
+      ],
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "RAM - ms-auth",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"auth_service\"}"
+        }
+      ],
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "graph",
+      "title": "Requests por segundo (RPS) - Todos los servicios",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(http_response_size_bytes_count[1m])",
+          "legendFormat": "{{handler}}"
+        }
+      ],
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 6}
+    },
+    {
+      "type": "graph",
+      "title": "Uso de CPU - Cada Microservicio",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "process_cpu_seconds_total{job=\"auth_service\"}", "legendFormat": "ms-auth"},
+        {"expr": "process_cpu_seconds_total{job=\"analisis_service\"}", "legendFormat": "ms-analisis"},
+        {"expr": "process_cpu_seconds_total{job=\"consumer_service\"}", "legendFormat": "ms-consumer"}
+      ],
+      "gridPos": {"x": 0, "y": 10, "w": 12, "h": 6}
+    },
+    {
+      "type": "graph",
+      "title": "Memoria RAM - Cada Microservicio",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "process_resident_memory_bytes{job=\"auth_service\"}", "legendFormat": "ms-auth"},
+        {"expr": "process_resident_memory_bytes{job=\"analisis_service\"}", "legendFormat": "ms-analisis"},
+        {"expr": "process_resident_memory_bytes{job=\"consumer_service\"}", "legendFormat": "ms-consumer"}
+      ],
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 6}
+    },
+    {
+      "type": "graph",
+      "title": "Recolecciones de GC - Python",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "rate(python_gc_collections_total[5m])", "legendFormat": "gen {{generation}}"}
+      ],
+      "gridPos": {"x": 0, "y": 22, "w": 12, "h": 6}
+    }
+  ],
+  "schemaVersion": 22,
+  "version": 1
+}

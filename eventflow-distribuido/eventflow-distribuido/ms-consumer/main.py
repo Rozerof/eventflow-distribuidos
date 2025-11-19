@@ -7,6 +7,7 @@ import threading # 👈 Añadido para ejecutar el consumidor en segundo plano
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import prometheus_fastapi_instrumentator
+from prometheus_client import start_http_server
 
 # --- Configuración del Entorno ---
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "queue")
@@ -15,6 +16,8 @@ DB_USER = os.environ.get("DB_USER", "user")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "password")
 DB_NAME = os.environ.get("DB_NAME", "eventflow_db")
 # -----------------------------------------------
+
+start_http_server(8005)  # Puerto para Prometheus metrics
 
 # 1. Crear la aplicación FastAPI
 app = FastAPI(title="Microservicio Consumidor de Compras")

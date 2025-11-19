@@ -3,7 +3,8 @@ import pika
 import time
 import json
 import os
-import psycopg2 
+import psycopg2
+from prometheus_client import start_http_server 
 
 # OBTENER LAS VARIABLES DE ENTORNO DE DOCKER-COMPOSE
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "queue")
@@ -16,6 +17,8 @@ DB_NAME = os.environ.get("DB_NAME", "eventflow_db") # 👈 CORRECCIÓN: Leer de 
 class StopConsumingException(Exception):
     """Excepción lanzada para detener el bucle de consumo actual."""
     pass
+
+start_http_server(8005)  # Puerto para Prometheus metrics
 
 # --- Función de Conexión a la BD ---
 def get_db_connection():

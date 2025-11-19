@@ -11,5 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia el código del microservicio (el consumidor)
 COPY src /app/src
 
+EXPOSE 8005
+
 # Comando para correr el consumidor de la cola (script de Python)
 CMD ["python", "src/consumer.py"]

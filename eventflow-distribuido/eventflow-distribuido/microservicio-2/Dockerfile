@@ -11,5 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia el código del microservicio
 COPY src /app/src
 
+EXPOSE 8082
+
 # Comando para correr la API de Análisis (Servidor Web Uvicorn/FastAPI)
-CMD ["uvicorn", "src.analysis_app:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "src.analysis_app:app", "--host", "0.0.0.0", "--port", "8000"]
